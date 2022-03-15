@@ -11,6 +11,6 @@ public class TestMainScript extends OpenSearchTestCase{
 
     @Test
     public void unitTest(){
-        
+        System.out.println("TEST : Unit Test is envoked");
     }
 }
