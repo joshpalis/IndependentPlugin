@@ -54,6 +54,44 @@ public class RunPlugin {
     protected static InetSocketAddress getLocalEphemeral() throws UnknownHostException {
         return new InetSocketAddress(InetAddress.getLocalHost(), 0);
     }
+    
+    public static Netty makeNettyTransport(
+        Settings settings,
+        Version version,
+        ThreadPool threadPool,
+        NetworkService networkService,
+        PageCacheRecycler pageCacheRecycler,
+        NamedWriteableRegistry namedWriteableRegistry,
+        CircuitBreakerService circuitBreakerService,
+        SharedGroupFactory sharedGroupFactory){
+            
+        return new Netty(
+            settings,
+            version,
+            threadPool,
+            networkService,
+            pageCacheRecycler,
+            namedWriteableRegistry,
+            circuitBreakerService,
+            sharedGroupFactory
+    );
+    }
+
+    public static ConnectionManager makeConnectionManager (Settings settings, Netty transport){
+        return new ClusterConnectionManager(settings, transport);
+    }
+
+    public static TransportService makeTransportService(Netty transport, ConnectionManager connectionManager, ThreadPool threadPool, Function<BoundTransportAddress, DiscoveryNode> localNodeFactory){
+        return new TransportService(
+            transport,
+            connectionManager,
+            transport.getResponseHandlers(),
+            threadPool,
+            localNodeFactory,
+            NOOP_TRANSPORT_INTERCEPTOR
+        );
+    }
+
 
     public static void main(String[] args) {
 
@@ -64,7 +102,7 @@ public class RunPlugin {
         final CircuitBreakerService circuitBreakerService = new NoneCircuitBreakerService();
 
 
-        Netty transport = new Netty(
+        Netty transport = makeNettyTransport(
                 settings,
                 Version.CURRENT,
                 threadPool,
@@ -75,18 +113,9 @@ public class RunPlugin {
                 new SharedGroupFactory(settings)
         );
 
-        final ConnectionManager connectionManager = new ClusterConnectionManager(settings, transport);
+        final ConnectionManager connectionManager = makeConnectionManager(settings, transport);
 
-
-
-        final TransportService transportService = new TransportService(
-                transport,
-                connectionManager,
-                transport.getResponseHandlers(),
-                threadPool,
-                localNodeFactory,
-                NOOP_TRANSPORT_INTERCEPTOR
-        );
+        final TransportService transportService = makeTransportService(transport, connectionManager, threadPool, localNodeFactory);
 
 //        connectionManager.addListener(transportService);
 

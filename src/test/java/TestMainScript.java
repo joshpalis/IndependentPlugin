@@ -1,7 +1,11 @@
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.test.OpenSearchTestCase;
 
 import transportservice.RunPlugin;
+import transportservice.netty4.Netty;
 
 public class TestMainScript extends OpenSearchTestCase{
 
@@ -20,15 +24,23 @@ public class TestMainScript extends OpenSearchTestCase{
     // - test main script debug output
     // -- check for bound address comnfirmation
 
+    // mock external class
+    @Mock private Netty nettyTranport;
+
     @Test
     public void unitTest(){
         System.out.println("TEST : Unit Test is envoked");
+        String[] args = null;
 
+        try(MockedStatic<RunPlugin> mockMain = Mockito.mockStatic(RunPlugin.class)) {
+            mockMain.when(() -> RunPlugin.main(args)).thenReturn("THIS IS A TEST");
+            RunPlugin.main(args);
+        }
+        catch(Exception e){
+            System.out.println(e.getMessage());
+        }
+       
 
-        // invoke main script for Transport service set up
-        // String[] args = null;
-        // RunPlugin.main(args);
-        
 
     }
 }
