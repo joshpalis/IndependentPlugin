@@ -81,7 +81,7 @@ public class RunPlugin {
         return new ClusterConnectionManager(settings, transport);
     }
 
-    public static TransportService makeTransportService(Netty transport, ConnectionManager connectionManager, ThreadPool threadPool, Function<BoundTransportAddress, DiscoveryNode> localNodeFactory){
+    public static TransportService makeTransportService(Netty transport, ConnectionManager connectionManager, ThreadPool threadPool){
         return new TransportService(
             transport,
             connectionManager,
@@ -93,34 +93,12 @@ public class RunPlugin {
     }
 
 
-    public static void main(String[] args) {
-
-        ThreadPool threadPool = new TestThreadPool("test");
-        NetworkService networkService = new NetworkService(Collections.emptyList());
-        PageCacheRecycler pageCacheRecycler = new PageCacheRecycler(settings);
-        NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(new SearchModule(Settings.EMPTY, Collections.emptyList()).getNamedWriteables());
-        final CircuitBreakerService circuitBreakerService = new NoneCircuitBreakerService();
-
-
-        Netty transport = makeNettyTransport(
-                settings,
-                Version.CURRENT,
-                threadPool,
-                networkService,
-                pageCacheRecycler,
-                namedWriteableRegistry,
-                circuitBreakerService,
-                new SharedGroupFactory(settings)
-        );
-
-        final ConnectionManager connectionManager = makeConnectionManager(settings, transport);
-
-        final TransportService transportService = makeTransportService(transport, connectionManager, threadPool, localNodeFactory);
-
-//        connectionManager.addListener(transportService);
-
+    public static void startTransportService(TransportService transportService){
         transportService.start();
         transportService.acceptIncomingRequests();
+    }
+
+    public static void startActionListener(){
 
         // Action Listener
 
@@ -166,6 +144,36 @@ public class RunPlugin {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void main(String[] args) {
+
+        ThreadPool threadPool = new TestThreadPool("test");
+        NetworkService networkService = new NetworkService(Collections.emptyList());
+        PageCacheRecycler pageCacheRecycler = new PageCacheRecycler(settings);
+        NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(new SearchModule(Settings.EMPTY, Collections.emptyList()).getNamedWriteables());
+        final CircuitBreakerService circuitBreakerService = new NoneCircuitBreakerService();
+
+        // create netty transport
+        Netty transport = makeNettyTransport(
+                settings,
+                Version.CURRENT,
+                threadPool,
+                networkService,
+                pageCacheRecycler,
+                namedWriteableRegistry,
+                circuitBreakerService,
+                new SharedGroupFactory(settings)
+        );
+
+        // create connection manager
+        final ConnectionManager connectionManager = makeConnectionManager(settings, transport);
+
+        // create transport service 
+        final TransportService transportService = makeTransportService(transport, connectionManager, threadPool);
+
+        startTransportService(transportService);
+        startActionListener();
     }
 
     private static class LocalNodeFactory implements Function<BoundTransportAddress, DiscoveryNode> {
