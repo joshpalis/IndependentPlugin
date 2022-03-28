@@ -28,7 +28,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
         RunPlugin runPlugin = new RunPlugin();
         ThreadPool threadPool = new TestThreadPool("test");
         Settings settings = Settings.builder()
-            .put("node.name", "IntegrationTests")
+            .put("node.name", "node_extension")
             .put(TransportSettings.BIND_HOST.getKey(), address)
             .put(TransportSettings.PORT.getKey(), port)
             .build();
