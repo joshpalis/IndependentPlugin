@@ -105,9 +105,9 @@ public class RunPlugin {
     }
 
     // manager method for action listener
-    public void startActionListener() {
+    public void startActionListener(int timeout) {
         final ActionListener actionListener = new ActionListener();
-        actionListener.runActionListener(true);
+        actionListener.runActionListener(true, timeout);
     }
 
     public static void main(String[] args) throws UnknownHostException {
@@ -120,7 +120,7 @@ public class RunPlugin {
 
         // start transport service and action listener
         runPlugin.startTransportService(transportService);
-        runPlugin.startActionListener();
+        runPlugin.startActionListener(0);
 
     }
 

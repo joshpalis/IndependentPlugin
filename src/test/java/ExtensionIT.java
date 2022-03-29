@@ -4,7 +4,10 @@ import org.opensearch.common.network.NetworkAddress;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.transport.TransportService;
 import org.opensearch.transport.TransportSettings;
+import java.net.*;
+import java.io.*;
 
 import transportservice.RunPlugin;
 import transportservice.netty4.Netty4Transport;
@@ -19,11 +22,11 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     // - (SDK transport) test handshake request response sent (message : internal:tcp/handshake sent response)
     // - (SDK action listener) test action listener work
 
-    private String address = "127.0.0.1";
-    private int port = 9301;
-
     @Test
     public void testThatInfosAreExposed() {
+
+        String address = "127.0.0.1";
+        int port = 9301;
 
         RunPlugin runPlugin = new RunPlugin();
         ThreadPool threadPool = new TestThreadPool("test");
@@ -55,34 +58,107 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     }
 
     @Test
-    public void testHandshakeRequestRecieved() {
+    public void testInvalidMessageFormat() throws UnknownHostException, InterruptedException {
 
-        // questions :
-        // How to send a handshake request
-        // How to check recieved message
+        // configure transport service
+        String address = "127.0.0.1";
+        int port = 9302;
 
-        // what do I need to begin writing tests :
-        // 1) How do I send a handshake
+        Settings settings = Settings.builder()
+            .put("node.name", "node_extension_test")
+            .put(TransportSettings.BIND_HOST.getKey(), address)
+            .put(TransportSettings.PORT.getKey(), port)
+            .build();
 
-        // start action listener to recieve request
-        // create simple tcp client to send in a handshake request message
-        // assert that action listener recieved the same request message
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                try {
 
-        // start action listener to recieve request
-        // ActionListener actionListener = new ActionListener();
-        // actionListener.runActionListener(true);
+                    // Connect to the server
+                    Socket socket = new Socket(address, port);
 
-        // start tcp client and send handshake request message
+                    // Create output stream to write to server
+                    PrintStream out = new PrintStream(socket.getOutputStream());
+
+                    // server logs MESSAGE RECIEVED: test
+                    out.println("ES");
+
+                    // TODO : check if server responds with MESSAGE RECIEVED
+
+                    // Close stream and socket connection
+                    out.close();
+                    socket.close();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        // start transport service and attempt tcp client connection
+        startTransportandClient(settings, t);
 
     }
 
+    @Test
+    public void testWrongSocketConnection() throws UnknownHostException, InterruptedException {
+
+        // configure transport service settings with correct port
+        String address = "127.0.0.1";
+        int port = 9303;
+
+        Settings settings = Settings.builder()
+            .put("node.name", "node_extension")
+            .put(TransportSettings.BIND_HOST.getKey(), address)
+            .put(TransportSettings.PORT.getKey(), port)
+            .build();
+
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    // Connect to the server using the wrong socket, will throw exception
+                    Socket socket = new Socket(address, 0);
+                    socket.close();
+                } catch (Exception e) {
+                    assertEquals("Connection refused", e.getMessage());
+                }
+
+            }
+        };
+
+        // start transport service and attempt tcp client connection
+        startTransportandClient(settings, t);
+    }
+
+    // test extension handshake recieved
+    @Test
+    public void testHandshakeRequestRecieved() {
+
+    }
+
+    // test exstension handshake response
     @Test
     public void testHandshakeRequestAcknowledged() {
 
     }
 
-    @Test
-    public void testTcpHandshakeTimeout() {
+    private static void startTransportandClient(Settings settings, Thread t) throws UnknownHostException, InterruptedException {
+
+        // retrieve transport service
+        RunPlugin runPlugin = new RunPlugin();
+        TransportService transportService = runPlugin.getTransportService(settings);
+
+        // start transport service
+        runPlugin.startTransportService(transportService);
+        assertEquals(transportService.lifecycleState(), Lifecycle.State.STARTED);
+
+        // connect client server to transport service
+        t.start();
+
+        // listen for messages, set timeout to close server socket connection
+        runPlugin.startActionListener(1000);
 
     }
 
