@@ -1,3 +1,4 @@
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.opensearch.common.component.Lifecycle;
 import org.opensearch.common.network.NetworkAddress;
@@ -22,22 +23,31 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     // - (SDK transport) test handshake request response sent (message : internal:tcp/handshake sent response)
     // - (SDK action listener) test action listener work
 
+    private int port;
+    private Settings settings;
+    private final int minPort = 49152;
+    private final int maxPort = 65535;
+    private final String host = "127.0.0.1";
     private volatile String clientResult;
-    private String host = "127.0.0.1";
+
+    @BeforeEach
+    public void setUp() {
+
+        // randomize port selection when creating settings
+        port = getRandomPort();
+
+        settings = Settings.builder()
+            .put("node.name", "node_extension_test")
+            .put(TransportSettings.BIND_HOST.getKey(), host)
+            .put(TransportSettings.PORT.getKey(), port)
+            .build();
+    }
 
     @Test
     public void testThatInfosAreExposed() {
 
-        int port = 9301;
-
         RunPlugin runPlugin = new RunPlugin();
         ThreadPool threadPool = new TestThreadPool("test");
-        Settings settings = Settings.builder()
-            .put("node.name", "node_extension")
-            .put(TransportSettings.BIND_HOST.getKey(), host)
-            .put(TransportSettings.PORT.getKey(), port)
-            .build();
-
         Netty4Transport transport = runPlugin.getNetty4Transport(settings, threadPool);
 
         // start netty transport and ensure that address info is exposed
@@ -65,16 +75,6 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
 
     @Test
     public void testInvalidMessageFormat() throws UnknownHostException, InterruptedException {
-
-        // configure transport service
-        int port = 9302;
-
-        Settings settings = Settings.builder()
-            .put("node.name", "node_extension_test")
-            .put(TransportSettings.BIND_HOST.getKey(), host)
-            .put(TransportSettings.PORT.getKey(), port)
-            .build();
-
         Thread client = new Thread() {
             @Override
             public void run() {
@@ -119,20 +119,11 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     @Test
     public void testMismatchingPort() throws UnknownHostException, InterruptedException {
 
-        // configure transport service settings with correct port
-        int port = 9303;
-
-        Settings settings = Settings.builder()
-            .put("node.name", "node_extension")
-            .put(TransportSettings.BIND_HOST.getKey(), host)
-            .put(TransportSettings.PORT.getKey(), port)
-            .build();
-
         Thread client = new Thread() {
             @Override
             public void run() {
                 try {
-                    // Connect to the server using the wrong socket, will throw exception
+                    // test ports are in range
                     Socket socket = new Socket(host, 0);
                     socket.close();
                 } catch (Exception e) {
@@ -159,6 +150,11 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     @Test
     public void testHandshakeRequestAcknowledged() {
 
+    }
+
+    private int getRandomPort() {
+        // generate port number within IANA suggested range for dynamic or private ports
+        return (int) ((Math.random() * (maxPort - minPort)) + minPort);
     }
 
     private void startTransportandClient(Settings settings, Thread client) throws UnknownHostException, InterruptedException {
