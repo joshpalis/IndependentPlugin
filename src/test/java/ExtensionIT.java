@@ -22,17 +22,18 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     // - (SDK transport) test handshake request response sent (message : internal:tcp/handshake sent response)
     // - (SDK action listener) test action listener work
 
+    private String host = "127.0.0.1";
+
     @Test
     public void testThatInfosAreExposed() {
 
-        String address = "127.0.0.1";
         int port = 9301;
 
         RunPlugin runPlugin = new RunPlugin();
         ThreadPool threadPool = new TestThreadPool("test");
         Settings settings = Settings.builder()
             .put("node.name", "node_extension")
-            .put(TransportSettings.BIND_HOST.getKey(), address)
+            .put(TransportSettings.BIND_HOST.getKey(), host)
             .put(TransportSettings.PORT.getKey(), port)
             .build();
 
@@ -42,14 +43,14 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
             // check bound addresses
             for (TransportAddress transportAddress : transport.boundAddress().boundAddresses()) {
                 assert (transportAddress instanceof TransportAddress);
-                assertEquals(address, transportAddress.getAddress());
+                assertEquals(host, transportAddress.getAddress());
                 assertEquals(port, transportAddress.getPort());
             }
 
             // check publish addresses
             assert (transport.boundAddress().publishAddress() instanceof TransportAddress);
             TransportAddress publishAddress = transport.boundAddress().publishAddress();
-            assertEquals(address, NetworkAddress.format(publishAddress.address().getAddress()));
+            assertEquals(host, NetworkAddress.format(publishAddress.address().getAddress()));
             assertEquals(port, publishAddress.address().getPort());
 
         } finally {
@@ -61,12 +62,11 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     public void testInvalidMessageFormat() throws UnknownHostException, InterruptedException {
 
         // configure transport service
-        String address = "127.0.0.1";
         int port = 9302;
 
         Settings settings = Settings.builder()
             .put("node.name", "node_extension_test")
-            .put(TransportSettings.BIND_HOST.getKey(), address)
+            .put(TransportSettings.BIND_HOST.getKey(), host)
             .put(TransportSettings.PORT.getKey(), port)
             .build();
 
@@ -76,15 +76,13 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
                 try {
 
                     // Connect to the server
-                    Socket socket = new Socket(address, port);
+                    Socket socket = new Socket(host, port);
 
                     // Create output stream to write to server
                     PrintStream out = new PrintStream(socket.getOutputStream());
 
                     // server logs MESSAGE RECIEVED: test
                     out.println("ES");
-
-                    // TODO : check if server responds with MESSAGE RECIEVED
 
                     // Close stream and socket connection
                     out.close();
@@ -102,15 +100,14 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     }
 
     @Test
-    public void testWrongSocketConnection() throws UnknownHostException, InterruptedException {
+    public void testMismatchingPort() throws UnknownHostException, InterruptedException {
 
         // configure transport service settings with correct port
-        String address = "127.0.0.1";
         int port = 9303;
 
         Settings settings = Settings.builder()
             .put("node.name", "node_extension")
-            .put(TransportSettings.BIND_HOST.getKey(), address)
+            .put(TransportSettings.BIND_HOST.getKey(), host)
             .put(TransportSettings.PORT.getKey(), port)
             .build();
 
@@ -119,7 +116,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
             public void run() {
                 try {
                     // Connect to the server using the wrong socket, will throw exception
-                    Socket socket = new Socket(address, 0);
+                    Socket socket = new Socket(host, 0);
                     socket.close();
                 } catch (Exception e) {
                     assertEquals("Connection refused", e.getMessage());
@@ -144,7 +141,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
 
     }
 
-    private static void startTransportandClient(Settings settings, Thread t) throws UnknownHostException, InterruptedException {
+    private void startTransportandClient(Settings settings, Thread t) throws UnknownHostException, InterruptedException {
 
         // retrieve transport service
         RunPlugin runPlugin = new RunPlugin();
