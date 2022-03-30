@@ -75,7 +75,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
             .put(TransportSettings.PORT.getKey(), port)
             .build();
 
-        Thread t = new Thread() {
+        Thread client = new Thread() {
             @Override
             public void run() {
                 try {
@@ -110,8 +110,8 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
         };
 
         // start transport service and attempt tcp client connection
-        startTransportandClient(settings, t);
-        
+        startTransportandClient(settings, client);
+
         // expecting -1 from client attempt to read from server, indicating connection closed by host
         assertEquals("-1", clientResult);
     }
@@ -128,7 +128,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
             .put(TransportSettings.PORT.getKey(), port)
             .build();
 
-        Thread t = new Thread() {
+        Thread client = new Thread() {
             @Override
             public void run() {
                 try {
@@ -142,8 +142,8 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
             }
         };
 
-        // start transport service and attempt tcp client connection
-        startTransportandClient(settings, t);
+        // start transport service and attempt client connection
+        startTransportandClient(settings, client);
 
         // expecting server response "Connection refused"
         assertEquals("Connection refused", clientResult);
@@ -161,7 +161,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
 
     }
 
-    private void startTransportandClient(Settings settings, Thread t) throws UnknownHostException, InterruptedException {
+    private void startTransportandClient(Settings settings, Thread client) throws UnknownHostException, InterruptedException {
 
         // retrieve transport service
         RunPlugin runPlugin = new RunPlugin();
@@ -172,13 +172,13 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
         assertEquals(transportService.lifecycleState(), Lifecycle.State.STARTED);
 
         // connect client server to transport service
-        t.start();
+        client.start();
 
         // listen for messages, set timeout to close server socket connection
         runPlugin.startActionListener(1000);
 
-        // wait for thread t to finish execution
-        t.join();
+        // wait for client thread to finish execution
+        client.join();
     }
 
 }
