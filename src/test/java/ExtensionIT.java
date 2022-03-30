@@ -22,6 +22,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
     // - (SDK transport) test handshake request response sent (message : internal:tcp/handshake sent response)
     // - (SDK action listener) test action listener work
 
+    private volatile String clientResult;
     private String host = "127.0.0.1";
 
     @Test
@@ -37,8 +38,12 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
             .put(TransportSettings.PORT.getKey(), port)
             .build();
 
+        Netty4Transport transport = runPlugin.getNetty4Transport(settings, threadPool);
+
         // start netty transport and ensure that address info is exposed
-        try (Netty4Transport transport = startNettyTransport(runPlugin.getNetty(settings, threadPool))) {
+        try {
+            transport.start();
+            assertEquals(transport.lifecycleState(), Lifecycle.State.STARTED);
 
             // check bound addresses
             for (TransportAddress transportAddress : transport.boundAddress().boundAddresses()) {
@@ -78,11 +83,21 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
                     // Connect to the server
                     Socket socket = new Socket(host, port);
 
-                    // Create output stream to write to server
+                    // Create input/output stream to read/write to server
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     PrintStream out = new PrintStream(socket.getOutputStream());
 
-                    // server logs MESSAGE RECIEVED: test
-                    out.println("ES");
+                    // server logs MESSAGE RECIEVED: TESTTT
+                    // note : message validation is only done if message length >= 6 bytes
+                    // character is 1 byte
+                    out.print("TESTTT");
+
+                    // Exception will originate from org.opensearch.transport.TcpTransport
+                    // - invalid internal transport message format
+                    // Expected behavior : transport service will close connection to client
+                    // disconnection by foreign host indicated by a return value of -1
+                    // only way to check if connection was closed by foreign host is to attempt to read
+                    clientResult = String.valueOf(in.read());
 
                     // Close stream and socket connection
                     out.close();
@@ -96,7 +111,9 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
 
         // start transport service and attempt tcp client connection
         startTransportandClient(settings, t);
-
+        
+        // expecting -1 from client attempt to read from server, indicating connection closed by host
+        assertEquals("-1", clientResult);
     }
 
     @Test
@@ -119,7 +136,7 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
                     Socket socket = new Socket(host, 0);
                     socket.close();
                 } catch (Exception e) {
-                    assertEquals("Connection refused", e.getMessage());
+                    clientResult = e.getMessage();
                 }
 
             }
@@ -127,6 +144,9 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
 
         // start transport service and attempt tcp client connection
         startTransportandClient(settings, t);
+
+        // expecting server response "Connection refused"
+        assertEquals("Connection refused", clientResult);
     }
 
     // test extension handshake recieved
@@ -157,13 +177,8 @@ public class ExtensionIT extends OpenSearchIntegTestCase {
         // listen for messages, set timeout to close server socket connection
         runPlugin.startActionListener(1000);
 
-    }
-
-    // helper method to ensure netty transport was started
-    private Netty4Transport startNettyTransport(Netty4Transport transport) {
-        transport.start();
-        assertEquals(transport.lifecycleState(), Lifecycle.State.STARTED);
-        return transport;
+        // wait for thread t to finish execution
+        t.join();
     }
 
 }
